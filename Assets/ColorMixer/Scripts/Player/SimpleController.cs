@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class PlayerController : MonoBehaviour
+public class SimpleController : MonoBehaviour
 {
     public float moveSpeed = 5f;
     public float jumpForce = 5f;
@@ -13,11 +13,11 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        // Â∑¶Âè≥ÁßªÂä®
+        // ◊Û”““∆∂Ø
         float h = Input.GetAxis("Horizontal");
         rb.velocity = new Vector2(h * moveSpeed, rb.velocity.y);
 
-        // Ë∑≥Ë∑É
+        // Ã¯‘æ
         if (Input.GetButtonDown("Jump"))
         {
             rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);

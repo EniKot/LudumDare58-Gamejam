@@ -44,9 +44,18 @@
                 },
                 {
                     "name": "GetColor",
-                    "type": "PassThrough",
+                    "type": "Button",
                     "id": "0cf81f3a-1e29-43e4-bea2-f6081a587ee2",
-                    "expectedControlType": "Vector2",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Jump",
+                    "type": "Button",
+                    "id": "71a9d358-08d1-42ed-a84f-2ace923abd54",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
@@ -287,11 +296,22 @@
                 {
                     "name": "",
                     "id": "6f78bea1-27b7-40af-a059-dc4b81383dd7",
-                    "path": "<Mouse>/position",
+                    "path": "<Keyboard>/e",
                     "interactions": "",
                     "processors": "",
                     "groups": ";Keyboard&Mouse",
                     "action": "GetColor",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "872ac0bf-aaa5-4180-83f3-30087ac790ba",
+                    "path": "<Keyboard>/space",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Keyboard&Mouse",
+                    "action": "Jump",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

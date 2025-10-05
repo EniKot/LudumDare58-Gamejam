@@ -5,8 +5,8 @@ using UnityEngine;
 public class InputService : SingletonMono<InputService>
 {
     public InputActionsMap inputMap;
-    public Vector2 inputDirectionHorizen;
-    public Vector2 inputDirectionVertical;
+    //public Vector2 inputDirectionHorizen;
+    //public Vector2 inputDirectionVertical;
     protected override void Awake()
     {
         base.Awake();
@@ -17,17 +17,7 @@ public class InputService : SingletonMono<InputService>
 
         inputMap.Enable();
     }
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+  
     public Vector2 GetMoveHorizontalValue
     {
         get
@@ -64,6 +54,28 @@ public class InputService : SingletonMono<InputService>
             }
         }
     }
+    public bool Shoot
+    {
+        get
+        {
+            return inputMap.Player.Fire.triggered;
+        }
+    }
+    public bool Jump
+    {
+        get
+        {
+            return inputMap.Player.Jump.triggered;
+        }
+    }
+    public bool Interact
+    {
+        get
+        {
+            return inputMap.Player.Interact.triggered;
+        }
+    }
+
 
 
     public Vector2 Move
