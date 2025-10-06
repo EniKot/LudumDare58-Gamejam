@@ -2,8 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public interface IColorPickable<Target>
+public interface IColorPickable
 {
-    void OnColorPicked(Color color, Target target);
-    Color GetColor();
+    public void OnColorPicked();
+    public Color GetColor();
 }

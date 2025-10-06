@@ -60,20 +60,24 @@ public class PlayerController : MonoBehaviour
     
     [Header("Debug")]
     [Tooltip("显示地面检测调试信息")]
-    public bool showGroundDebug = true;
+    public bool showGroundDebug = false;
     #endregion
 
     #region Private Fields
     private Rigidbody2D rb;
     private Animator anim;
-    Vector3 movement;
     private int direction = 1;
+
+
     //bool isJumping = false;
     private bool alive = true;
 
     bool isGrounded = true;
 
     Vector2 moveVector;
+
+    public int Direction => direction;
+
     #endregion
 
     #region Enums
@@ -94,7 +98,7 @@ public class PlayerController : MonoBehaviour
         inputService = InputService.Instance;
 
         inputService.inputMap.Player.Jump.started += Jump;
-        //inputService.inputMap.Player.Fire.started += Attack;
+        //inputService.inputMap.Player.Fire.started += Shoot;
     }
 
     void Start()
@@ -126,6 +130,10 @@ public class PlayerController : MonoBehaviour
             Die();
             Move();
         }
+    }
+    private void OnDestroy()
+    {
+        inputService.inputMap.Player.Jump.started -= Jump;
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -328,7 +336,10 @@ public class PlayerController : MonoBehaviour
                 anim.SetBool("isRun", true);
         }
     }
+    void Shoot()
+    {
 
+    }
     void Jump(InputAction.CallbackContext obj)
     {
         if (!alive || !isGrounded) return;

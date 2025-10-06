@@ -3,22 +3,30 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// 颜色混合控制器
-/// 处理玩家的混色输入操作
+/// 处理弹匣选择和混色操作
+/// 键盘1234控制弹匣选择，Tab进入混色模式
 /// </summary>
 public class ColorMixController : MonoBehaviour
 {
     #region Serialized Fields
     [Header("References")]
     [SerializeField] private ColorBag colorBag;
+    //[SerializeField] private PlayerController playerController;
     
     [Header("Input Settings")]
-    [SerializeField] private KeyCode mixRedGreenKey = KeyCode.Alpha1;
-    [SerializeField] private KeyCode mixRedBlueKey = KeyCode.Alpha2;
-    [SerializeField] private KeyCode mixGreenBlueKey = KeyCode.Alpha3;
-    [SerializeField] private KeyCode clearMixMagazineKey = KeyCode.Alpha4;
+    [SerializeField] private KeyCode selectMagazine1Key = KeyCode.Alpha1; // 红色
+    [SerializeField] private KeyCode selectMagazine2Key = KeyCode.Alpha2; // 绿色
+    [SerializeField] private KeyCode selectMagazine3Key = KeyCode.Alpha3; // 蓝色
+    [SerializeField] private KeyCode selectMagazine4Key = KeyCode.Alpha4; // 混合
+    [SerializeField] private KeyCode mixModeKey = KeyCode.Tab;
     
     [Header("Debug")]
     [SerializeField] private bool showMixGUI = true;
+    [SerializeField] private bool showDebug = true;
+    #endregion
+
+    #region Private Fields
+    private InputService inputService;
     #endregion
 
     #region Unity Lifecycle
@@ -27,21 +35,23 @@ public class ColorMixController : MonoBehaviour
     {
         // 查找 ColorBag 如果未设置
         if (colorBag == null)
-        {
             colorBag = FindObjectOfType<ColorBag>();
-            if (colorBag == null)
-            {
-                Debug.LogError("ColorBag not found! Please assign it in the inspector.");
-            }
-        }
+        
+        //if (playerController == null)
+        //    playerController = FindObjectOfType<PlayerController>();
+            
+        inputService = InputService.Instance;
     }
 
     private void Start()
     {
-        // 订阅混色事件
+        // 订阅 ColorBag 事件
         if (colorBag != null)
         {
             colorBag.OnColorsMixed += HandleColorsMixed;
+            colorBag.OnCurrentMagazineChanged += HandleCurrentMagazineChanged;
+            colorBag.OnMixModeChanged += HandleMixModeChanged;
+            colorBag.OnFirstMixMagazineSelected += HandleFirstMixMagazineSelected;
         }
     }
 
@@ -53,9 +63,7 @@ public class ColorMixController : MonoBehaviour
     private void OnGUI()
     {
         if (showMixGUI)
-        {
             DrawMixGUI();
-        }
     }
 
     private void OnDestroy()
@@ -64,6 +72,9 @@ public class ColorMixController : MonoBehaviour
         if (colorBag != null)
         {
             colorBag.OnColorsMixed -= HandleColorsMixed;
+            colorBag.OnCurrentMagazineChanged -= HandleCurrentMagazineChanged;
+            colorBag.OnMixModeChanged -= HandleMixModeChanged;
+            colorBag.OnFirstMixMagazineSelected -= HandleFirstMixMagazineSelected;
         }
     }
 
@@ -72,143 +83,92 @@ public class ColorMixController : MonoBehaviour
     #region Input Handling
 
     /// <summary>
-    /// 处理混色输入
+    /// 处理混色和弹匣选择输入 旧版输入系统，新输入系统请自行修改
     /// </summary>
     private void HandleMixInput()
     {
         if (colorBag == null) return;
 
-        // 混合红绿
-        if (Input.GetKeyDown(mixRedGreenKey))
+        // 弹匣选择
+        if (Input.GetKeyDown(selectMagazine1Key))
         {
-            TryMixRedGreen();
+            HandleMagazineSelection(0); // 红色
+        }
+        else if (Input.GetKeyDown(selectMagazine2Key))
+        {
+            HandleMagazineSelection(1); // 绿色
+        }
+        else if (Input.GetKeyDown(selectMagazine3Key))
+        {
+            HandleMagazineSelection(2); // 蓝色
+        }
+        else if (Input.GetKeyDown(selectMagazine4Key))
+        {
+            HandleMagazineSelection(3); // 混合
         }
 
-        // 混合红蓝
-        if (Input.GetKeyDown(mixRedBlueKey))
+        // 混色模式切换
+        if (Input.GetKeyDown(mixModeKey))
         {
-            TryMixRedBlue();
+            HandleMixModeToggle();
         }
 
-        // 混合绿蓝
-        if (Input.GetKeyDown(mixGreenBlueKey))
-        {
-            TryMixGreenBlue();
-        }
+        
+    }
 
-        // 清空混合弹匣
-        if (Input.GetKeyDown(clearMixMagazineKey))
-        {
-            ClearMixMagazine();
-        }
 
-        // 支持新输入系统
-        HandleNewInputSystem();
+    #endregion
+
+
+    #region Magazine Selection
+
+    /// <summary>
+    /// 处理弹匣选择
+    /// </summary>
+    /// <param name="magazineIndex">弹匣索引</param>
+    public void HandleMagazineSelection(int magazineIndex)
+    {
+        if (colorBag.IsMixMode)
+        {
+            // 在混色模式下，选择第二个弹匣并尝试混色
+            if (colorBag.SetCurrentMagazine(magazineIndex))
+            {
+                bool mixSuccess = colorBag.TryMixWithCurrentMagazine();
+                if (!mixSuccess && showDebug)
+                {
+                    Debug.LogWarning("Failed to mix colors - check magazine requirements");
+                }
+            }
+        }
+        else
+        {
+            // 正常模式下，切换当前弹匣
+            colorBag.SetCurrentMagazine(magazineIndex);
+        }
     }
 
     /// <summary>
-    /// 处理新输入系统
+    /// 处理混色模式切换
     /// </summary>
-    private void HandleNewInputSystem()
+    public void HandleMixModeToggle()
     {
-        if (Keyboard.current == null) return;
-
-        if (Keyboard.current.digit1Key.wasPressedThisFrame)
+        if (colorBag.IsMixMode)
         {
-            TryMixRedGreen();
+            // 退出混色模式
+            colorBag.ExitMixMode();
+
         }
-
-        if (Keyboard.current.digit2Key.wasPressedThisFrame)
+        else
         {
-            TryMixRedBlue();
-        }
-
-        if (Keyboard.current.digit3Key.wasPressedThisFrame)
-        {
-            TryMixGreenBlue();
-        }
-
-        if (Keyboard.current.digit4Key.wasPressedThisFrame)
-        {
-            ClearMixMagazine();
+            // 进入混色模式
+            colorBag.EnterMixMode();
         }
     }
 
     #endregion
 
-    #region Mix Operations
 
-    /// <summary>
-    /// 尝试混合红色和绿色
-    /// </summary>
-    private void TryMixRedGreen()
-    {
-        bool canMix = colorBag.CanMix(colorBag.RedMagazine, colorBag.GreenMagazine);
-        
-        if (canMix)
-        {
-            colorBag.MixRedGreen();
-        }
-        else
-        {
-            Debug.LogWarning("Cannot mix Red + Green: Magazines not full or Mix magazine not empty");
-            ShowMixFailureMessage("Red + Green", colorBag.RedMagazine, colorBag.GreenMagazine);
-        }
-    }
 
-    /// <summary>
-    /// 尝试混合红色和蓝色
-    /// </summary>
-    private void TryMixRedBlue()
-    {
-        bool canMix = colorBag.CanMix(colorBag.RedMagazine, colorBag.BlueMagazine);
-        
-        if (canMix)
-        {
-            colorBag.MixRedBlue();
-        }
-        else
-        {
-            Debug.LogWarning("Cannot mix Red + Blue: Magazines not full or Mix magazine not empty");
-            ShowMixFailureMessage("Red + Blue", colorBag.RedMagazine, colorBag.BlueMagazine);
-        }
-    }
-
-    /// <summary>
-    /// 尝试混合绿色和蓝色
-    /// </summary>
-    private void TryMixGreenBlue()
-    {
-        bool canMix = colorBag.CanMix(colorBag.GreenMagazine, colorBag.BlueMagazine);
-        
-        if (canMix)
-        {
-            colorBag.MixGreenBlue();
-        }
-        else
-        {
-            Debug.LogWarning("Cannot mix Green + Blue: Magazines not full or Mix magazine not empty");
-            ShowMixFailureMessage("Green + Blue", colorBag.GreenMagazine, colorBag.BlueMagazine);
-        }
-    }
-
-    /// <summary>
-    /// 清空混合弹匣
-    /// </summary>
-    private void ClearMixMagazine()
-    {
-        if (colorBag.MixMagazine != null && !colorBag.MixMagazine.IsEmpty)
-        {
-            colorBag.MixMagazine.ClearMagazine();
-            Debug.Log("Mix magazine cleared");
-        }
-        else
-        {
-            Debug.Log("Mix magazine is already empty");
-        }
-    }
-
-    #endregion
 
     #region Event Handlers
 
@@ -217,15 +177,37 @@ public class ColorMixController : MonoBehaviour
     /// </summary>
     private void HandleColorsMixed(ColorMagazine mag1, ColorMagazine mag2, Color mixedColor)
     {
-        Debug.Log($"Colors successfully mixed! {mag1.gameObject.name} + {mag2.gameObject.name} = {mixedColor}");
-        
-        // 这里可以添加更多效果，比如：
-        // - 播放混色音效
-        // - 显示混色特效
-        // - 更新UI显示
-        // - 触发成就系统等
+        if (showDebug)
+            Debug.Log($"[ColorMixController] Colors successfully mixed! {mag1.MagazineName} + {mag2.MagazineName} = {mixedColor}");
         
         PlayMixEffect(mixedColor);
+    }
+
+    /// <summary>
+    /// 处理当前弹匣改变事件
+    /// </summary>
+    private void HandleCurrentMagazineChanged(ColorMagazine newMagazine)
+    {
+        if (showDebug)
+            Debug.Log($"[ColorMixController] Current magazine changed to: {newMagazine?.MagazineName}");
+    }
+
+    /// <summary>
+    /// 处理混色模式改变事件
+    /// </summary>
+    private void HandleMixModeChanged(bool inMixMode)
+    {
+        if (showDebug)
+            Debug.Log($"[ColorMixController] Mix mode: {(inMixMode ? "ENTERED" : "EXITED")}");
+    }
+
+    /// <summary>
+    /// 处理第一个混色弹匣选择事件
+    /// </summary>
+    private void HandleFirstMixMagazineSelected(ColorMagazine firstMagazine)
+    {
+        if (showDebug)
+            Debug.Log($"[ColorMixController] First mix magazine selected: {firstMagazine.MagazineName}");
     }
 
     /// <summary>
@@ -234,106 +216,141 @@ public class ColorMixController : MonoBehaviour
     private void PlayMixEffect(Color mixedColor)
     {
         // 可以在这里添加粒子效果、音效等
-        Debug.Log($"Playing mix effect for color: {mixedColor}");
-    }
-
-    /// <summary>
-    /// 显示混色失败信息
-    /// </summary>
-    private void ShowMixFailureMessage(string mixType, ColorMagazine mag1, ColorMagazine mag2)
-    {
-        string message = $"Cannot mix {mixType}:\n";
-        message += $"- {mag1.gameObject.name}: {mag1.CurrentBullets}/{mag1.BulletCapacity} bullets\n";
-        message += $"- {mag2.gameObject.name}: {mag2.CurrentBullets}/{mag2.BulletCapacity} bullets\n";
-        message += $"- Mix Magazine: {(colorBag.MixMagazine.IsEmpty ? "Empty" : "Not Empty")}";
-        
-        Debug.Log(message);
+        if (showDebug)
+            Debug.Log($"Playing mix effect for color: {mixedColor}");
     }
 
     #endregion
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #region GUI
 
     /// <summary>
-    /// 绘制混色GUI
+    /// 绘制混色GUI Generate By Claude4
     /// </summary>
     private void DrawMixGUI()
     {
-        float startX = Screen.width - 250f;
+        if (colorBag == null) return;
+
+        float startX = Screen.width - 300f;
         float startY = 10f;
         float lineHeight = 25f;
         float yOffset = startY;
 
         GUI.color = Color.white;
-        GUI.Label(new Rect(startX, yOffset, 240f, lineHeight), "=== Color Mixing ===");
+        GUI.Label(new Rect(startX, yOffset, 290f, lineHeight), "=== Color Mix Controller ===");
         yOffset += lineHeight + 5f;
 
-        // 显示混色选项
-        DrawMixOption(startX, ref yOffset, lineHeight, "Red + Green", mixRedGreenKey, 
-            colorBag.CanMix(colorBag.RedMagazine, colorBag.GreenMagazine));
+        // 显示当前选中的弹匣
+        var currentMag = colorBag.CurrentColorMagazine;
+        if (currentMag != null)
+        {
+            GUI.color = currentMag.MagazineColor;
+            GUI.Box(new Rect(startX, yOffset, 20, 20), "");
+            GUI.color = Color.white;
+            GUI.Label(new Rect(startX + 25, yOffset, 260f, lineHeight), 
+                $"Current: {currentMag.MagazineName} ({currentMag.CurrentBullets}/{currentMag.BulletCapacity})");
+            yOffset += lineHeight;
+        }
 
-        DrawMixOption(startX, ref yOffset, lineHeight, "Red + Blue", mixRedBlueKey, 
-            colorBag.CanMix(colorBag.RedMagazine, colorBag.BlueMagazine));
-
-        DrawMixOption(startX, ref yOffset, lineHeight, "Green + Blue", mixGreenBlueKey, 
-            colorBag.CanMix(colorBag.GreenMagazine, colorBag.BlueMagazine));
+        // 显示混色模式状态
+        if (colorBag.IsMixMode)
+        {
+            GUI.color = Color.yellow;
+            GUI.Label(new Rect(startX, yOffset, 290f, lineHeight), "*** MIX MODE ACTIVE ***");
+            yOffset += lineHeight;
+            
+            if (colorBag.FirstMixMagazine != null)
+            {
+                GUI.color = colorBag.FirstMixMagazine.MagazineColor;
+                GUI.Box(new Rect(startX, yOffset, 20, 20), "");
+                GUI.color = Color.white;
+                GUI.Label(new Rect(startX + 25, yOffset, 260f, lineHeight), 
+                    $"First: {colorBag.FirstMixMagazine.MagazineName}");
+                yOffset += lineHeight;
+                
+                GUI.color = Color.cyan;
+                GUI.Label(new Rect(startX, yOffset, 290f, lineHeight), "Select second magazine to mix!");
+                yOffset += lineHeight;
+            }
+        }
 
         yOffset += 5f;
 
-        // 清空混合弹匣选项
-        GUI.color = colorBag.MixMagazine != null && !colorBag.MixMagazine.IsEmpty ? Color.yellow : Color.gray;
-        GUI.Label(new Rect(startX, yOffset, 240f, lineHeight), 
-            $"[{clearMixMagazineKey}] Clear Mix Magazine");
+        // 显示控制说明
+        GUI.color = Color.white;
+        GUI.Label(new Rect(startX, yOffset, 290f, lineHeight), "=== Controls ===");
+        yOffset += lineHeight;
+
+        DrawControlHint(startX, ref yOffset, lineHeight, $"[{selectMagazine1Key}]", "Red Magazine", 
+            colorBag.CurrentMagazineIndex == 0);
+        DrawControlHint(startX, ref yOffset, lineHeight, $"[{selectMagazine2Key}]", "Green Magazine", 
+            colorBag.CurrentMagazineIndex == 1);
+        DrawControlHint(startX, ref yOffset, lineHeight, $"[{selectMagazine3Key}]", "Blue Magazine", 
+            colorBag.CurrentMagazineIndex == 2);
+        DrawControlHint(startX, ref yOffset, lineHeight, $"[{selectMagazine4Key}]", "Mix Magazine", 
+            colorBag.CurrentMagazineIndex == 3);
+
+        yOffset += 5f;
+        GUI.color = colorBag.IsMixMode ? Color.yellow : Color.gray;
+        GUI.Label(new Rect(startX, yOffset, 290f, lineHeight), $"[{mixModeKey}] Toggle Mix Mode");
 
         GUI.color = Color.white;
     }
 
     /// <summary>
-    /// 绘制单个混色选项
+    /// 绘制单个控制提示
     /// </summary>
-    private void DrawMixOption(float x, ref float y, float lineHeight, string mixName, KeyCode key, bool canMix)
+    private void DrawControlHint(float x, ref float y, float lineHeight, string key, string description, bool isSelected)
     {
-        GUI.color = canMix ? Color.green : Color.red;
-        GUI.Label(new Rect(x, y, 240f, lineHeight), $"[{key}] {mixName}");
+        GUI.color = isSelected ? Color.green : Color.white;
+        GUI.Label(new Rect(x, y, 290f, lineHeight), $"{key} {description}");
         y += lineHeight;
     }
 
     #endregion
 
-    #region Public Methods
-
+    //#region Public Methods
     /// <summary>
     /// 设置 ColorBag 引用
     /// </summary>
-    public void SetColorBag(ColorBag bag)
-    {
-        // 取消旧的事件订阅
-        if (colorBag != null)
-        {
-            colorBag.OnColorsMixed -= HandleColorsMixed;
-        }
+    //public void SetColorBag(ColorBag bag)
+    //{
+    //    // 取消旧的事件订阅
+    //    if (colorBag != null)
+    //    {
+    //        colorBag.OnColorsMixed -= HandleColorsMixed;
+    //        colorBag.OnCurrentMagazineChanged -= HandleCurrentMagazineChanged;
+    //        colorBag.OnMixModeChanged -= HandleMixModeChanged;
+    //        colorBag.OnFirstMixMagazineSelected -= HandleFirstMixMagazineSelected;
+    //    }
 
-        colorBag = bag;
+    //    colorBag = bag;
 
-        // 订阅新的事件
-        if (colorBag != null)
-        {
-            colorBag.OnColorsMixed += HandleColorsMixed;
-        }
-    }
-
-    /// <summary>
-    /// 检查指定混色是否可用
-    /// </summary>
-    public bool CanMix(ColorBag.MagazineType type1, ColorBag.MagazineType type2)
-    {
-        if (colorBag == null) return false;
-
-        var mag1 = colorBag.GetMagazine(type1);
-        var mag2 = colorBag.GetMagazine(type2);
-
-        return colorBag.CanMix(mag1, mag2);
-    }
-
-    #endregion
+    //    // 订阅新的事件
+    //    if (colorBag != null)
+    //    {
+    //        colorBag.OnColorsMixed += HandleColorsMixed;
+    //        colorBag.OnCurrentMagazineChanged += HandleCurrentMagazineChanged;
+    //        colorBag.OnMixModeChanged += HandleMixModeChanged;
+    //        colorBag.OnFirstMixMagazineSelected += HandleFirstMixMagazineSelected;
+    //    }
+    //}
+    //#endregion
 }

@@ -8,14 +8,12 @@ public class ColorPicker : MonoBehaviour
     #region Serialized Fields
     [Header("References")]
     [SerializeField] private ColorBag colorBag;
+    [SerializeField] private PlayerController playerController;
     
     [Header("Detection Settings")]
     [SerializeField] private LayerMask pickableLayerMask = -1;
     [SerializeField] private float detectionRadius = 1.5f;
     [SerializeField] private Transform detectionCenter;
-    
-    [Header("Input Settings")]
-    [SerializeField] private KeyCode pickColorKey = KeyCode.E;
     
     [Header("Debug")]
     [SerializeField] private bool showDebugGUI = true;
@@ -23,14 +21,15 @@ public class ColorPicker : MonoBehaviour
     #endregion
 
     #region Private Fields
-    private List<IColorPickable<GameObject>> pickableObjects = new List<IColorPickable<GameObject>>();
-    private IColorPickable<GameObject> nearestPickable;
+    private List<IColorPickable> pickableObjects = new List<IColorPickable>();
+    private IColorPickable nearestPickable;
     private float nearestDistance = float.MaxValue;
+    private InputService inputService;
     #endregion
 
     #region Events
     public event Action<Color, GameObject> OnColorPicked;
-    public event Action<IColorPickable<GameObject>> OnPickableObjectFound;
+    public event Action<IColorPickable> OnPickableObjectFound;
     public event Action OnNoPickableObjectFound;
     #endregion
 
@@ -38,43 +37,41 @@ public class ColorPicker : MonoBehaviour
     
     private void Awake()
     {
-        // 如果没有设置检测中心，使用自身位置
         if (detectionCenter == null)
-        {
             detectionCenter = transform;
-        }
         
-        // 如果没有设置 ColorBag，尝试查找
         if (colorBag == null)
-        {
             colorBag = FindObjectOfType<ColorBag>();
-            if (colorBag == null)
-            {
-                Debug.LogError("ColorBag not found! Please assign it in the inspector or add it to the scene.");
-            }
-        }
+        
+        if (playerController == null)
+            playerController = FindObjectOfType<PlayerController>();
+            
+        inputService = InputService.Instance;
     }
 
-    private void Update()
+    private void Start()
     {
-        HandleInput();
-        UpdatePickableDetection();
+        // 订阅 Fire 输入
+        if (inputService?.inputMap?.Player != null && inputService.inputMap.Player.Fire != null)
+            inputService.inputMap.Player.Fire.started += OnFireInput;
+    }
+
+    private void OnDestroy()
+    {
+        if (inputService?.inputMap?.Player != null && inputService.inputMap.Player.Fire != null)
+            inputService.inputMap.Player.Fire.started -= OnFireInput;
     }
 
     private void OnGUI()
     {
         if (showDebugGUI)
-        {
             DrawDebugGUI();
-        }
     }
 
     private void OnDrawGizmos()
     {
         if (showDetectionRange && detectionCenter != null)
-        {
             DrawDetectionRange();
-        }
     }
 
     #endregion
@@ -82,21 +79,17 @@ public class ColorPicker : MonoBehaviour
     #region Input Handling
 
     /// <summary>
-    /// 处理输入
+    /// 处理 Fire 输入 - 只处理颜色拾取
     /// </summary>
-    private void HandleInput()
+    private void OnFireInput(InputAction.CallbackContext context)
     {
-        // 检查按键输入
-        if (Input.GetKeyDown(pickColorKey))
-        {
-            TryPickColor();
-        }
+        UpdatePickableDetection();
         
-        // 可选：支持新输入系统
-        if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+        if (nearestPickable != null)
         {
             TryPickColor();
         }
+        // 射击逻辑已移至ColorShooter，这里不再处理
     }
 
     #endregion
@@ -108,41 +101,18 @@ public class ColorPicker : MonoBehaviour
     /// </summary>
     private void TryPickColor()
     {
-        if (nearestPickable == null)
-        {
-            OnNoPickableObjectFound?.Invoke();
-            Debug.Log("No pickable object in range");
-            return;
-        }
+        if (nearestPickable == null) return;
 
-        // 获取颜色
         Color pickedColor = nearestPickable.GetColor();
-        GameObject targetObject = nearestPickable as MonoBehaviour != null ? 
-            ((MonoBehaviour)nearestPickable).gameObject : null;
+        GameObject targetObject = (nearestPickable as MonoBehaviour)?.gameObject;
 
-        if (targetObject == null)
-        {
-            Debug.LogError("Failed to get target object from pickable");
-            return;
-        }
+        if (targetObject == null) return;
 
-        // 添加到 ColorBag
-        bool success = colorBag.AddColorBullet(pickedColor);
-        
-        if (success)
-        {
-            // 通知 IColorPickable 对象颜色被拾取
-            nearestPickable.OnColorPicked(pickedColor, targetObject);
-            
-            // 触发事件
-            OnColorPicked?.Invoke(pickedColor, targetObject);
-            
-            Debug.Log($"Successfully picked color {pickedColor} from {targetObject.name}");
-        }
-        else
-        {
-            Debug.LogWarning($"Failed to add color {pickedColor} to ColorBag - no suitable magazine or magazine full");
-        }
+        nearestPickable.OnColorPicked();
+        OnColorPicked?.Invoke(pickedColor, targetObject);
+        Debug.Log($"Picked color {pickedColor} from {targetObject.name}");
+
+        colorBag.AddColorBullet(pickedColor);
     }
 
     /// <summary>
@@ -154,21 +124,16 @@ public class ColorPicker : MonoBehaviour
         nearestPickable = null;
         nearestDistance = float.MaxValue;
 
-        // 在检测范围内查找所有2D碰撞体
         Collider2D[] colliders = Physics2D.OverlapCircleAll(detectionCenter.position, detectionRadius, pickableLayerMask);
         
-        foreach (Collider2D col in colliders)
+        foreach (var col in colliders)
         {
-            // 查找实现 IColorPickable<GameObject> 的组件
-            var pickableComponents = col.GetComponentsInChildren<MonoBehaviour>();
-            
-            foreach (var component in pickableComponents)
+            foreach (var component in col.GetComponentsInChildren<MonoBehaviour>())
             {
-                if (component is IColorPickable<GameObject> pickable)
+                if (component is IColorPickable pickable)
                 {
                     pickableObjects.Add(pickable);
                     
-                    // 计算距离，找到最近的对象
                     float distance = Vector2.Distance(detectionCenter.position, col.transform.position);
                     if (distance < nearestDistance)
                     {
@@ -179,28 +144,22 @@ public class ColorPicker : MonoBehaviour
             }
         }
 
-        // 触发本地事件
         if (nearestPickable != null)
-        {
             OnPickableObjectFound?.Invoke(nearestPickable);
-        }
+        else
+            OnNoPickableObjectFound?.Invoke();
     }
 
     #endregion
 
     #region Debug and Visualization
 
-    /// <summary>
-    /// 绘制检测范围（2D版本）
-    /// </summary>
     private void DrawDetectionRange()
     {
+        // 绘制检测范围
         Gizmos.color = nearestPickable != null ? Color.green : Color.yellow;
         
-        // 绘制2D检测圆圈
         Vector3 center = detectionCenter.position;
-        
-        // 绘制检测圆圈（在XY平面）
         for (int i = 0; i < 36; i++)
         {
             float angle1 = i * 10f * Mathf.Deg2Rad;
@@ -212,13 +171,12 @@ public class ColorPicker : MonoBehaviour
             Gizmos.DrawLine(point1, point2);
         }
         
-        // 绘制到最近对象的线
-        if (nearestPickable != null && nearestPickable is MonoBehaviour nearestComponent)
+        // 绘制到最近对象的连线和标记
+        if (nearestPickable is MonoBehaviour nearestComponent)
         {
             Gizmos.color = Color.red;
             Gizmos.DrawLine(detectionCenter.position, nearestComponent.transform.position);
             
-            // 在最近对象位置绘制一个小十字标记
             Vector3 targetPos = nearestComponent.transform.position;
             float crossSize = 0.2f;
             Gizmos.DrawLine(targetPos + Vector3.left * crossSize, targetPos + Vector3.right * crossSize);
@@ -226,23 +184,19 @@ public class ColorPicker : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 绘制调试GUI
-    /// </summary>
     private void DrawDebugGUI()
     {
         float yOffset = 10f;
         float lineHeight = 25f;
         
-        // 显示检测信息
         GUI.color = Color.white;
         GUI.Label(new Rect(10, yOffset, 400, lineHeight), $"Detection Range: {detectionRadius}m");
         yOffset += lineHeight;
         
-        GUI.Label(new Rect(10, yOffset, 400, lineHeight), $"Pickable Objects Found: {pickableObjects.Count}");
+        GUI.Label(new Rect(10, yOffset, 400, lineHeight), $"Pickable Objects: {pickableObjects.Count}");
         yOffset += lineHeight;
         
-        if (nearestPickable != null && nearestPickable is MonoBehaviour nearestComponent)
+        if (nearestPickable is MonoBehaviour nearestComponent)
         {
             GUI.color = Color.green;
             GUI.Label(new Rect(10, yOffset, 400, lineHeight), $"Nearest: {nearestComponent.gameObject.name} ({nearestDistance:F1}m)");
@@ -254,23 +208,25 @@ public class ColorPicker : MonoBehaviour
             GUI.color = Color.white;
             GUI.Label(new Rect(70, yOffset, 300, lineHeight), $"Color: {nearestColor}");
             yOffset += lineHeight;
+            
+            GUI.color = Color.cyan;
+            GUI.Label(new Rect(10, yOffset, 400, lineHeight), "Press [Fire] to pick color");
         }
         else
         {
             GUI.color = Color.red;
-            GUI.Label(new Rect(10, yOffset, 400, lineHeight), "No pickable objects in range");
+            GUI.Label(new Rect(10, yOffset, 400, lineHeight), "No pickable objects");
             yOffset += lineHeight;
+            
+            GUI.color = Color.yellow;
+            GUI.Label(new Rect(10, yOffset, 400, lineHeight), "Shooting handled by ColorShooter");
         }
         
-        // 显示操作提示
-        GUI.color = Color.cyan;
-        GUI.Label(new Rect(10, yOffset, 400, lineHeight), $"Press [{pickColorKey}] or [E] to pick color");
-        yOffset += lineHeight;
+        yOffset += 10f;
         
-        // 显示 ColorBag 状态
+        // ColorBag 状态
         if (colorBag != null)
         {
-            yOffset += 10f;
             GUI.color = Color.yellow;
             GUI.Label(new Rect(10, yOffset, 400, lineHeight), "=== ColorBag Status ===");
             yOffset += lineHeight;
@@ -282,10 +238,32 @@ public class ColorPicker : MonoBehaviour
                     GUI.color = magazine.MagazineColor;
                     GUI.Box(new Rect(10, yOffset, 20, 20), "");
                     
+                    // 高亮当前选中的弹匣
+                    bool isCurrent = magazine == colorBag.CurrentColorMagazine;
+                    GUI.color = isCurrent ? Color.green : Color.white;
+                    
+                    string prefix = isCurrent ? ">>> " : "    ";
+                    GUI.Label(new Rect(35, yOffset, 300, lineHeight), 
+                        $"{prefix}{magazine.MagazineName}: {magazine.CurrentBullets}/{magazine.BulletCapacity}");
+                    yOffset += lineHeight;
+                }
+            }
+            
+            // 显示混色模式状态
+            if (colorBag.IsMixMode)
+            {
+                yOffset += 5f;
+                GUI.color = Color.magenta;
+                GUI.Label(new Rect(10, yOffset, 400, lineHeight), "*** MIX MODE ACTIVE ***");
+                yOffset += lineHeight;
+                
+                if (colorBag.FirstMixMagazine != null)
+                {
+                    GUI.color = colorBag.FirstMixMagazine.MagazineColor;
+                    GUI.Box(new Rect(10, yOffset, 20, 20), "");
                     GUI.color = Color.white;
                     GUI.Label(new Rect(35, yOffset, 300, lineHeight), 
-                        $"{magazine.gameObject.name}: {magazine.CurrentBullets}/{magazine.BulletCapacity}");
-                    yOffset += lineHeight;
+                        $"First: {colorBag.FirstMixMagazine.MagazineName}");
                 }
             }
         }
@@ -297,52 +275,28 @@ public class ColorPicker : MonoBehaviour
 
     #region Public Methods
 
-    /// <summary>
-    /// 设置检测半径
-    /// </summary>
-    public void SetDetectionRadius(float radius)
-    {
-        detectionRadius = Mathf.Max(0.1f, radius);
-    }
+    public void SetDetectionRadius(float radius) => detectionRadius = Mathf.Max(0.1f, radius);
+    public void SetPickableLayerMask(LayerMask layerMask) => pickableLayerMask = layerMask;
+    public int GetPickableObjectCount() => pickableObjects.Count;
+    public IColorPickable GetNearestPickable() => nearestPickable;
+    public void SetColorBag(ColorBag bag) => colorBag = bag;
+    public bool HasPickableInRange() => nearestPickable != null;
 
     /// <summary>
-    /// 设置检测层级
-    /// </summary>
-    public void SetPickableLayerMask(LayerMask layerMask)
-    {
-        pickableLayerMask = layerMask;
-    }
-
-    /// <summary>
-    /// 获取当前检测到的可拾取对象数量
-    /// </summary>
-    public int GetPickableObjectCount()
-    {
-        return pickableObjects.Count;
-    }
-
-    /// <summary>
-    /// 获取最近的可拾取对象
-    /// </summary>
-    public IColorPickable<GameObject> GetNearestPickable()
-    {
-        return nearestPickable;
-    }
-
-    /// <summary>
-    /// 手动触发拾取颜色
+    /// 手动触发颜色拾取
     /// </summary>
     public void ManualPickColor()
     {
+        UpdatePickableDetection();
         TryPickColor();
     }
 
     /// <summary>
-    /// 设置 ColorBag 引用
+    /// 强制更新可拾取对象检测
     /// </summary>
-    public void SetColorBag(ColorBag bag)
+    public void ForceUpdateDetection()
     {
-        colorBag = bag;
+        UpdatePickableDetection();
     }
 
     #endregion

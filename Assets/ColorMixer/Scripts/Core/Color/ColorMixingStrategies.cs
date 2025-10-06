@@ -85,7 +85,10 @@ public static class ColorMixingStrategies
 
 
     #region Helper Methods
-
+    public static bool IsColorSimilar(Color color1, Color color2, float threshold = 0.2f)
+    {
+        return Vector4.Distance(color1, color2) <= threshold;
+    }
     private static float OverlayChannel(float a, float b)
     {
         return a < 0.5f 

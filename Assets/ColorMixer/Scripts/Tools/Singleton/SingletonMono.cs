@@ -32,7 +32,10 @@ public class SingletonMono<T> : MonoBehaviour where T : MonoBehaviour
             DontDestroyOnLoad(instance);
         }
         else
-        {
+
+        {   
+            Debug.LogWarning("There is already an instance of " + instance + ". Destroying the new one.");
+            Debug.LogWarning("destroy duplicate singleton:" + typeof(T).Name);
             Destroy(instance);
         }
     }
