@@ -1,51 +1,43 @@
 using UnityEngine;
 
-public class Chest : MonoBehaviour, IInteractable,IColorDyeable
+public class Chest : Enemy, IColorDyeable
 {
-    public Animator anim;
-    public int reward = 100;
     public Color color;
-   
+
+    private SpriteRenderer spriteRenderer;
+    public Sprite openedSprite;
     private bool isOpened = false;
+    //public int maxHealth = 4;
 
-    public int maxHealth = 4;
-
-    private int currentHealth;
-
-
-    public void Start()
+    //private int currentHealth;
+    private void Awake()
     {
-        currentHealth = maxHealth;
+        
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+
     }
+
     public void OnColorDye(Color receivedColor)
     {
         // 可以根据 receivedColor 改变宝箱颜色
         // 补色
         Color desireColor = Color.white - color;
-        if (ColorMixingStrategies.IsColorSimilar(receivedColor, desireColor)) { 
-            
-            currentHealth--;
-            if (currentHealth <= 0)
-            {
-                Opened();
-            }
+        if (ColorMixingStrategies.IsColorSimilar(receivedColor, desireColor))
+        {
+            Debug.Log("Chest "+gameObject.name+" hit!");
+            base.TakeDamage(1);
         }
-            
+
 
     }
-    public void Opened()
+    public override void Die()
     {
-        gameObject.SetActive(false);
+        spriteRenderer.sprite = openedSprite;
+        base.Die();
     }
-    public void OnInteract(PlayerController player)
-    {
-        if (isOpened) return;
 
-        Debug.Log("Chest opened! Reward +" + reward);
-        if (anim != null)
-            anim.SetTrigger("Open");
-
-        isOpened = true;
-        // 在这里加金币逻辑（例如 player.AddScore(reward);）
-    }
 }

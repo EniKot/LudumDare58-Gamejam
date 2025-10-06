@@ -241,7 +241,7 @@ public class PlayerController : MonoBehaviour
                 if (hit.collider.gameObject.CompareTag("Player")||hit.collider.gameObject==gameObject){
                     continue;
                 }
-                Debug.Log("Hit:"+hit.collider.name);
+                //Debug.Log("Hit:"+hit.collider.name);
                 hitCount++;
                 if (showGroundDebug)
                 {
