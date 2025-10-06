@@ -3,7 +3,7 @@ using UnityEngine;
 [RequireComponent(typeof(Collider2D))]
 public class ColorPickableObject : MonoBehaviour, IColorPickable
 {
-    [SerializeField] private Color color;
+    public Color color = Color.red;
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] public bool usePredefinedColor = false;
     private void Awake()

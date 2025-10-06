@@ -3,5 +3,5 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public interface IColorDyeable { 
-    void OnColorDye(Color receivedColor);
+    public void OnColorDye(Color receivedColor);
 }

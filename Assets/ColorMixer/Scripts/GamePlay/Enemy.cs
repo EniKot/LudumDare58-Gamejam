@@ -3,6 +3,7 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody2D), typeof(Animator))]
 public class Enemy : MonoBehaviour
 {
+    //Ñ²Âßµã
     public Transform pointA, pointB;
     public float speed = 2f;
     public int hp = 3;

@@ -1,84 +1,70 @@
-using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine;
 
 [RequireComponent(typeof(SpriteRenderer), typeof(BoxCollider2D))]
-public class ColorPlatform : MonoBehaviour
+public class ColorPlatform : MonoBehaviour,IColorDyeable
 {
-    public enum BasicColor { Red, Yellow, Blue }
+    
 
     [Header("目标颜色 (平台需要被激活的最终颜色)")]
-    public BasicColor targetColor;
-
-    [Header("当前填充状态")]
-    public List<BasicColor> currentHits = new List<BasicColor>();
+    public Color targetColor;
 
     private SpriteRenderer sr;
     private BoxCollider2D col;
-    private bool solidified = false;
-    private float alpha = 0.15f;
+    public bool fillComplete = false;
+    public float initialAlpha = 0.15f;
+    private float alpha;
+    public int hitCount = 3;
 
-    void Start()
+    public void OnColorDye(Color receivedColor)
     {
-        sr = GetComponent<SpriteRenderer>();
-        col = GetComponent<BoxCollider2D>();
-        col.enabled = false;
-        UpdateTransparency();
-    }
-
-    // 模拟被子弹击中颜色
-    public void OnHitByColor(BasicColor color)
-    {
-        if (solidified) return;
-        if (!currentHits.Contains(color))
-            currentHits.Add(color);
+        if (fillComplete) return;
+       
 
         // 判断是否达成目标混色
-        if (IsColorMatch())
+        if (ColorMixingStrategies.IsColorSimilar(targetColor,receivedColor))
         {
-            solidified = true;
-            col.enabled = true;
-            alpha = 1f;
+
+
+            alpha += (1.0f - initialAlpha) / hitCount;
+            alpha = Mathf.Clamp(alpha, 0.15f, 1.0f);
             UpdateTransparency();
 
-            var move = GetComponent<MovingPlatform>();
-            if (move) move.active = true;
-            AudioManager.Instance.PlaySFX("PlatformActive");
+            if (alpha >= 1.0f)
+            {
+                fillComplete = true;
+                OnFillComplete();
+            }
+           
         }
-        else
-        {
-            alpha += 0.25f;
-            alpha = Mathf.Clamp(alpha, 0.15f, 0.7f);
-            UpdateTransparency();
-        }
+
     }
-
-    private bool IsColorMatch()
+    private void OnFillComplete()
     {
-        // 颜色组合规则
-        if (targetColor == BasicColor.Red && currentHits.Contains(BasicColor.Red)) return true;
-        if (targetColor == BasicColor.Yellow && currentHits.Contains(BasicColor.Yellow)) return true;
-        if (targetColor == BasicColor.Blue && currentHits.Contains(BasicColor.Blue)) return true;
-        // 混色逻辑
-        if (targetColor == BasicColor.Red && currentHits.Contains(BasicColor.Yellow) && currentHits.Contains(BasicColor.Blue)) return true;
-        if (targetColor == BasicColor.Yellow && currentHits.Contains(BasicColor.Red) && currentHits.Contains(BasicColor.Blue)) return true;
-        if (targetColor == BasicColor.Blue && currentHits.Contains(BasicColor.Red) && currentHits.Contains(BasicColor.Yellow)) return true;
-        return false;
+        var move = GetComponent<MovingPlatform>();
+        if (move) move.active = true;
+        col.isTrigger = false;
+        AudioManager.Instance.PlaySFX("PlatformActive");
     }
+    void Awake()
+    {
+        alpha = initialAlpha;
+    }
+    void Start()
+    { 
+        sr = GetComponent<SpriteRenderer>();
+        col = GetComponent<BoxCollider2D>();
+        col.isTrigger = true;
+        UpdateTransparency();
+    }
+    
+    // 模拟被子弹击中颜色
+   
 
     private void UpdateTransparency()
     {
-        Color baseColor = GetBaseColor(targetColor);
-        sr.color = new Color(baseColor.r, baseColor.g, baseColor.b, alpha);
+        
+        sr.color = new Color(targetColor.r,targetColor.g,targetColor.b, alpha);
     }
 
-    private Color GetBaseColor(BasicColor c)
-    {
-        switch (c)
-        {
-            case BasicColor.Red: return Color.red;
-            case BasicColor.Yellow: return Color.yellow;
-            case BasicColor.Blue: return Color.blue;
-            default: return Color.white;
-        }
-    }
 }

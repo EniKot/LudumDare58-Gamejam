@@ -5,11 +5,11 @@ using UnityEngine;
 public class ColorMagazine
 {
     #region Serialized Fields
-    [SerializeField] private int bulletCapacity = 6;
-    [SerializeField] private Color magazineColor = Color.clear;
-    [SerializeField] private int currentBullets = 0;
-    [SerializeField] private string magazineName = "Magazine";
-    [SerializeField] private bool showDebug = false;
+    private int bulletCapacity = 6;
+    private Color magazineColor = Color.clear;
+    private int currentBullets = 0;
+    private string magazineName = "Magazine";
+    private bool showDebug = false;
     #endregion
 
     #region Public Properties
@@ -33,7 +33,8 @@ public class ColorMagazine
 
     #region Constructor
     public ColorMagazine(string name = "Magazine", int capacity = 6)
-    {
+    { 
+        Debug.Log("create color magazine " + name);
         magazineName = name;
         bulletCapacity = capacity;
         currentBullets = 0;
@@ -76,9 +77,7 @@ public class ColorMagazine
 
         if (IsEmpty)
         {
-            magazineColor = Color.clear;
             OnMagazineEmpty?.Invoke(this);
-            OnMagazineColorChanged?.Invoke(this);
         }
 
         return true;
@@ -87,9 +86,9 @@ public class ColorMagazine
     public void ClearMagazine()
     {
         currentBullets = 0;
-        magazineColor = Color.clear;
+        //magazineColor = Color.clear;
         OnMagazineCleared?.Invoke(this);
-        OnMagazineColorChanged?.Invoke(this);
+        //OnMagazineColorChanged?.Invoke(this);
     }
 
     public void SetMagazineColor(Color color)
@@ -102,7 +101,12 @@ public class ColorMagazine
     {
         magazineName = name;
     }
-
+    public void SetMagazineCapacity(int capacity)
+    {
+        bulletCapacity = capacity;
+        if (currentBullets > bulletCapacity)
+            currentBullets = bulletCapacity;
+    }
     public void FillMagazine()
     {
         int bulletsToAdd = bulletCapacity - currentBullets;

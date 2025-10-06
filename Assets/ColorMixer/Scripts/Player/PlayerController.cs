@@ -87,7 +87,6 @@ public class PlayerController : MonoBehaviour
         MultiRaycast,         // 多射线检测（更稳定）
         BoxCast,              // BoxCast检测
         OverlapBox,           // OverlapBox检测（最精确）
-        VelocityBased         // 基于速度的检测（简单但不太准确）
     }
     #endregion
 
@@ -126,8 +125,8 @@ public class PlayerController : MonoBehaviour
     {
         if (alive)
         {
-            Hurt();
-            Die();
+            //Hurt();
+            //Die();
             Move();
         }
     }
@@ -187,8 +186,6 @@ public class PlayerController : MonoBehaviour
             case GroundDetectionMethod.OverlapBox:
                 isGrounded = CheckGroundWithOverlapBox();
                 break;
-            case GroundDetectionMethod.VelocityBased:
-                isGrounded = CheckGroundWithVelocity();
                 break;
         }
 
@@ -212,7 +209,10 @@ public class PlayerController : MonoBehaviour
     {
         Vector2 origin = (Vector2)transform.position + raycastOffset;
         RaycastHit2D hit = Physics2D.Raycast(origin, Vector2.down, raycastDistance, groundLayer);
-
+        if (hit.collider.gameObject.CompareTag("Player") || hit.collider.gameObject == gameObject)
+        {
+            return false;
+        }
         if (showGroundDebug && hit.collider != null)
         {
             Debug.DrawRay(origin, Vector2.down * raycastDistance, Color.green);
@@ -220,7 +220,7 @@ public class PlayerController : MonoBehaviour
 
         return hit.collider != null;
     }
-
+    
     /// <summary>
     /// 方法2: 多射线检测（更稳定，推荐）
     /// </summary>
@@ -238,6 +238,10 @@ public class PlayerController : MonoBehaviour
 
             if (hit.collider != null)
             {
+                if (hit.collider.gameObject.CompareTag("Player")||hit.collider.gameObject==gameObject){
+                    continue;
+                }
+                Debug.Log("Hit:"+hit.collider.name);
                 hitCount++;
                 if (showGroundDebug)
                 {
@@ -261,8 +265,20 @@ public class PlayerController : MonoBehaviour
     {
         Vector2 origin = (Vector2)transform.position + boxCastOffset;
         RaycastHit2D hit = Physics2D.BoxCast(origin, boxCastSize, 0f, Vector2.down, boxCastDistance, groundLayer);
+        if(hit.collider != null)
+        {
+            if (hit.collider.gameObject.CompareTag("Player") || hit.collider.gameObject == gameObject)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+        return false;
 
-        return hit.collider != null;
+        
     }
 
     /// <summary>
@@ -272,19 +288,21 @@ public class PlayerController : MonoBehaviour
     {
         Vector2 boxCenter = (Vector2)transform.position + overlapBoxOffset;
         Collider2D hit = Physics2D.OverlapBox(boxCenter, overlapBoxSize, 0f, groundLayer);
-
-        return hit != null;
+        if (hit != null)
+        {
+            if (hit.gameObject.CompareTag("Player") || hit.gameObject == gameObject)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
-    /// <summary>
-    /// 方法5: 基于速度的检测（简单但不准确）
-    /// </summary>
-    private bool CheckGroundWithVelocity()
-    {
-        // 如果垂直速度接近0且上一帧在地面上，认为仍在地面
-        // 这种方法不太准确，不推荐使用
-        return Mathf.Abs(rb.velocity.y) < 0.1f && isGrounded;
-    }
 
     /// <summary>
     /// 当角色着地时调用
@@ -330,15 +348,11 @@ public class PlayerController : MonoBehaviour
                 rb.velocity = new Vector2(moveVector.x * movePower, rb.velocity.y);
             }
 
-            transform.localScale = new Vector3(direction, 1, 1);
+            transform.localScale = new Vector3(direction* Mathf.Abs(transform.localScale.x), transform.localScale.y, transform.localScale.z);
             
             if (isGrounded && !anim.GetBool("isJump"))
                 anim.SetBool("isRun", true);
         }
-    }
-    void Shoot()
-    {
-
     }
     void Jump(InputAction.CallbackContext obj)
     {
@@ -375,35 +389,29 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    void Attack(InputAction.CallbackContext obj)
+    public void Attack()
     {
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            Debug.Log("Shoot!");
-            anim.SetTrigger("attack");
-        }
+        Debug.Log("Shoot!");
+        anim.SetTrigger("attack");
+        
     }
 
-    void Hurt()
+    public void Hurt()
     {
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            anim.SetTrigger("hurt");
-            if (direction == 1)
-                rb.AddForce(new Vector2(-5f, 1f), ForceMode2D.Impulse);
-            else
-                rb.AddForce(new Vector2(5f, 1f), ForceMode2D.Impulse);
-            Debug.Log("Hurt!");
-        }
+        anim.SetTrigger("hurt");
+        if (direction == 1)
+            rb.AddForce(new Vector2(-5f, 1f), ForceMode2D.Impulse);
+        else
+            rb.AddForce(new Vector2(5f, 1f), ForceMode2D.Impulse);
+        Debug.Log("Hurt!");
+       
     }
 
-    void Die()
+    public void Die()
     {
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            anim.SetTrigger("die");
-            alive = false;
-        }
+        anim.SetTrigger("die");
+        alive = false;
+        
     }
 
     void Restart()

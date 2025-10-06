@@ -36,7 +36,7 @@ public class ColorShooter : MonoBehaviour
     #endregion
 
     #region Events
-    public event Action<ColorBullet> OnBulletFired;
+    public event Action OnBulletFired;
     public event Action OnShootAttempted;
     public event Action OnShootFailed;
     #endregion
@@ -53,6 +53,15 @@ public class ColorShooter : MonoBehaviour
     private void Awake()
     {
         InitializeComponents();
+
+        if (playerController == null)
+        {
+            playerController = GetComponent<PlayerController>();
+        }
+        if (playerController != null)
+        {
+            OnBulletFired += playerController.Attack;
+        }
     }
 
     private void Start()
@@ -141,6 +150,10 @@ public class ColorShooter : MonoBehaviour
         {
             inputService.inputMap.Player.Fire.started -= OnFireInput;
         }
+        if(playerController != null)
+        {
+            OnBulletFired -= playerController.Attack;
+        }
     }
 
     #endregion
@@ -208,6 +221,7 @@ public class ColorShooter : MonoBehaviour
         int fireDirection = GetFireDirectionInt();
         Color bulletColor = currentMagazine.MagazineColor;
 
+
         // 发射子弹
         ColorBullet bullet = ColorBulletPool.Instance.FireBullet(
             firePos,
@@ -227,7 +241,7 @@ public class ColorShooter : MonoBehaviour
             lastFireTime = Time.time;
             
             // 触发事件
-            OnBulletFired?.Invoke(bullet);
+            OnBulletFired?.Invoke();
             
             if (showDebugInfo)
             {

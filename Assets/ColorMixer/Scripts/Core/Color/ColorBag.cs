@@ -5,11 +5,11 @@ using UnityEngine;
 public class ColorBag : MonoBehaviour
 {
     #region Serialized Fields
-    [Header("Magazine Data")]
-    [SerializeField] private ColorMagazine redMagazine;
-    [SerializeField] private ColorMagazine greenMagazine;
-    [SerializeField] private ColorMagazine blueMagazine;
-    [SerializeField] private ColorMagazine mixMagazine;
+    //[Header("Magazine Data")]
+    private ColorMagazine redMagazine;
+    private ColorMagazine greenMagazine;
+    private ColorMagazine blueMagazine;
+    private ColorMagazine mixMagazine;
     
     [Header("Color Settings")]
     [SerializeField] private Color baseRedColor = Color.red;
@@ -80,9 +80,15 @@ public class ColorBag : MonoBehaviour
     /// </summary>
     private void InitializeMagazines()
     {
+        Debug.Log("Initialize ColorBag Magazines");
         // 创建弹匣实例（如果为null）
         if (redMagazine == null)
+        {
+            Debug.Log("create red magazine");
             redMagazine = new ColorMagazine("Red Magazine", 6);
+        }
+
+            
         if (greenMagazine == null)
             greenMagazine = new ColorMagazine("Green Magazine", 6);
         if (blueMagazine == null)
@@ -416,7 +422,7 @@ public class ColorBag : MonoBehaviour
 
         // 执行混色
         Color mixedColor = PerformColorMixing(magazine1.MagazineColor, magazine2.MagazineColor);
-        
+        Debug.Log("Perform mixColor");
         // 清空参与混色的弹匣
         magazine1.ClearMagazine();
         magazine2.ClearMagazine();

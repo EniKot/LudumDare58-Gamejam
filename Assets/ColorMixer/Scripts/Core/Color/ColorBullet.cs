@@ -89,7 +89,8 @@ public class ColorBullet : MonoBehaviour
 
         // 忽略与自己层级或自己碰撞体的重复检测（可根据项目层级策略改进）
         if (other.attachedRigidbody != null && other.attachedRigidbody == rb) return;
-        
+        if (other.gameObject.layer.Equals("Player") || other.gameObject.CompareTag("Player") == true) return;
+        Debug.Log(other.name + " hit by " + gameObject.name);
         // 优先尝试对目标调用 IDamageable 接口
 
         var dyableObject = other.GetComponentInParent<IColorDyeable>();
@@ -133,7 +134,10 @@ public class ColorBullet : MonoBehaviour
     public void ReturnToPool()
     {
         // 停止运动
+        
         rb.velocity = Vector2.zero;
+        gameObject.SetActive(false);
+        Debug.Log(gameObject + " stop move");
         // 取消回调注册（保险）
         OnReturnToPool?.Invoke(this);
     }
